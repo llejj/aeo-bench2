@@ -16,7 +16,22 @@ Install cloudflared:
 brew install cloudflared
 ```
 
-## How to Run (4 terminals)
+## Quick Start (Recommended)
+
+Single command to start everything:
+```bash
+./start_all.sh
+```
+
+This will:
+1. Start the proxy
+2. Start cloudflared and auto-capture the tunnel URL
+3. Start both agents with the correct URL
+4. Clean up all processes when you press Ctrl+C
+
+## Manual Start (4 terminals)
+
+If you prefer manual control:
 
 ```bash
 # Terminal 1: Start the local reverse proxy
@@ -35,7 +50,7 @@ DOMAIN="random-words.trycloudflare.com" ./start_white.sh
 
 ## URLs
 
-After starting cloudflared, your agents will be accessible at:
+After starting, your agents will be accessible at:
 - **Green Agent**: `https://<your-cloudflared-url>/green/...`
 - **White Agent**: `https://<your-cloudflared-url>/white/...`
 
@@ -43,6 +58,7 @@ After starting cloudflared, your agents will be accessible at:
 
 | File | Purpose |
 |------|---------|
+| `start_all.sh` | **Single command to start everything** |
 | `proxy.py` | Local reverse proxy for path-based routing |
 | `start_proxy.sh` | Starts the proxy on port 8080 |
 | `start_green.sh` | Starts green agent on port 8010 |

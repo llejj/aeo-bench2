@@ -2,6 +2,19 @@
 
 import uvicorn
 import dotenv
+import logging
+
+# Set up file logging to debug agent execution
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/tmp/white_agent.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('white_agent')
+
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -43,6 +56,7 @@ class GeneralWhiteAgentExecutor(AgentExecutor):
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         # parse the task
         user_input = context.get_user_input()
+        logger.info(f"White agent: Received message:\n{user_input}\n---END MESSAGE---")
         if context.context_id not in self.ctx_id_to_messages:
             self.ctx_id_to_messages[context.context_id] = []
         messages = self.ctx_id_to_messages[context.context_id]

@@ -11,6 +11,7 @@ DOMAIN="${DOMAIN:-lisandra-aqueous-davin.ngrok-free.dev}"
 export HTTPS_ENABLED=true
 export CLOUDRUN_HOST="$DOMAIN/white"
 export PORT=8011
+export PYTHONUNBUFFERED=1
 
 echo "=============================================="
 echo "Starting WHITE agent (Target Being Tested)"

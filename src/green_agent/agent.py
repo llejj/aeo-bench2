@@ -5,6 +5,18 @@ import tomllib
 import dotenv
 import json
 import time
+import logging
+
+# Set up file logging to debug agent execution
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/tmp/green_agent.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('green_agent')
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -134,9 +146,11 @@ class TauGreenAgentExecutor(AgentExecutor):
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         # parse the task
-        print("Green agent: Received a task, parsing...")
+        logger.info("Green agent: Received a task, parsing...")
         user_input = context.get_user_input()
+        logger.info(f"Green agent: Received message:\n{user_input}\n---END MESSAGE---")
         tags = parse_tags(user_input)
+        logger.info(f"Green agent: Parsed tags: {list(tags.keys())}")
         white_agent_url = tags["white_agent_url"]
         env_config_str = tags["env_config"]
         env_config = json.loads(env_config_str)

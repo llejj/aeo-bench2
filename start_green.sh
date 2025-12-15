@@ -11,6 +11,7 @@ DOMAIN="${DOMAIN:-lisandra-aqueous-davin.ngrok-free.dev}"
 export HTTPS_ENABLED=true
 export CLOUDRUN_HOST="$DOMAIN/green"
 export PORT=8010
+export PYTHONUNBUFFERED=1
 
 echo "=============================================="
 echo "Starting GREEN agent (Assessment Manager)"
