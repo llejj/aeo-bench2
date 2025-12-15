@@ -80,7 +80,8 @@ def start_white_agent(agent_name="general_white_agent", host="localhost", port=9
     
     # Use external URL if provided (for tunnel access), otherwise use local URL
     if external_url:
-        url = f"https://{external_url}"
+        # AGENT_URL from controller already includes protocol
+        url = external_url if external_url.startswith("http") else f"https://{external_url}"
         print(f"Using external URL: {url}")
     else:
         url = f"http://{host}:{port}"
