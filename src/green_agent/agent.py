@@ -188,10 +188,17 @@ class TauGreenAgentExecutor(AgentExecutor):
         raise NotImplementedError
 
 
-def start_green_agent(agent_name="tau_green_agent", host="localhost", port=9001):
+def start_green_agent(agent_name="tau_green_agent", host="localhost", port=9001, external_url=""):
     print("Starting green agent...")
     agent_card_dict = load_agent_card_toml(agent_name)
-    url = f"http://{host}:{port}"
+    
+    # Use external URL if provided (for tunnel access), otherwise use local URL
+    if external_url:
+        url = f"https://{external_url}"
+        print(f"Using external URL: {url}")
+    else:
+        url = f"http://{host}:{port}"
+        print(f"Using local URL: {url}")
     agent_card_dict["url"] = url  # complete all required card fields
 
     request_handler = DefaultRequestHandler(

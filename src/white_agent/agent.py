@@ -75,9 +75,16 @@ class GeneralWhiteAgentExecutor(AgentExecutor):
         raise NotImplementedError
 
 
-def start_white_agent(agent_name="general_white_agent", host="localhost", port=9002):
+def start_white_agent(agent_name="general_white_agent", host="localhost", port=9002, external_url=""):
     print("Starting white agent...")
-    url = f"http://{host}:{port}"
+    
+    # Use external URL if provided (for tunnel access), otherwise use local URL
+    if external_url:
+        url = f"https://{external_url}"
+        print(f"Using external URL: {url}")
+    else:
+        url = f"http://{host}:{port}"
+        print(f"Using local URL: {url}")
     card = prepare_white_agent_card(url)
 
     request_handler = DefaultRequestHandler(
