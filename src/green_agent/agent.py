@@ -152,8 +152,23 @@ class TauGreenAgentExecutor(AgentExecutor):
         tags = parse_tags(user_input)
         logger.info(f"Green agent: Parsed tags: {list(tags.keys())}")
         white_agent_url = tags["white_agent_url"]
-        env_config_str = tags["env_config"]
-        env_config = json.loads(env_config_str)
+        
+        # Use env_config from message if provided, otherwise use default
+        if "env_config" in tags:
+            env_config_str = tags["env_config"]
+            env_config = json.loads(env_config_str)
+            logger.info(f"Green agent: Using env_config from message")
+        else:
+            # Default config for tau-bench retail environment
+            env_config = {
+                "env": "retail",
+                "user_strategy": "llm",
+                "user_model": "openai/gpt-4o",
+                "user_provider": "openai",
+                "task_split": "test",
+                "task_ids": [1]
+            }
+            logger.info(f"Green agent: Using default env_config: {env_config}")
 
         # set up the environment
         # migrate from https://github.com/sierra-research/tau-bench/blob/4754e6b406507dbcbce8e8b3855dcf80aaec18ac/tau_bench/run.py#L20

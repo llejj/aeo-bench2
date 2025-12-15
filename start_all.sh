@@ -13,7 +13,9 @@ cleanup() {
     echo ""
     echo "Shutting down all services..."
     kill $(jobs -p) 2>/dev/null
-    rm -f /tmp/cloudflared-$$.log
+    # Stop nginx
+    nginx -s stop -c "$SCRIPT_DIR/nginx.conf" 2>/dev/null || true
+    rm -f /tmp/cloudflared-$$.log /tmp/nginx.pid /tmp/nginx_error.log /tmp/nginx_access.log
     exit 0
 }
 
@@ -29,17 +31,21 @@ lsof -ti :8080 | xargs kill -9 2>/dev/null || true
 lsof -ti :8010 | xargs kill -9 2>/dev/null || true
 lsof -ti :8011 | xargs kill -9 2>/dev/null || true
 pkill -f cloudflared 2>/dev/null || true
+nginx -s stop -c "$SCRIPT_DIR/nginx.conf" 2>/dev/null || true
 
-# Clean up stale agent state directories
+# Clean up stale agent state directories and nginx files
 rm -rf "$SCRIPT_DIR/green/.ab" 2>/dev/null || true
 rm -rf "$SCRIPT_DIR/white/.ab" 2>/dev/null || true
+rm -f /tmp/nginx.pid /tmp/nginx_error.log /tmp/nginx_access.log 2>/dev/null || true
 sleep 1
 
-# Start proxy
-echo "[1/4] Starting proxy..."
-./start_proxy.sh 2>&1 | sed 's/^/[PROXY] /' &
-PROXY_PID=$!
-sleep 2
+# Start nginx proxy
+echo "[1/4] Starting nginx proxy..."
+nginx -c "$SCRIPT_DIR/nginx.conf"
+echo "[PROXY] nginx started on port 8080"
+echo "[PROXY]   /green/* -> localhost:8010"
+echo "[PROXY]   /white/* -> localhost:8011"
+sleep 1
 
 # Start cloudflared and capture URL
 echo "[2/4] Starting Cloudflare Tunnel..."

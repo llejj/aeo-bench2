@@ -17,7 +17,7 @@ from a2a.types import (
 
 
 async def get_agent_card(url: str) -> AgentCard | None:
-    httpx_client = httpx.AsyncClient()
+    httpx_client = httpx.AsyncClient(timeout=60.0)
     resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
 
     card: AgentCard | None = await resolver.get_agent_card()
