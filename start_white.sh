@@ -5,7 +5,7 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/white"
-source .venv/bin/activate
+source "$SCRIPT_DIR/.venv/bin/activate"
 
 DOMAIN="${DOMAIN:-lisandra-aqueous-davin.ngrok-free.dev}"
 export HTTPS_ENABLED=true
