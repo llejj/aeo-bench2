@@ -1,9 +1,0 @@
-{
-  "name": "number_guessing_game",
-  "description": "Interactive number guessing game",
-  "language": "Python",
-  "domain": "utility",
-  "files": [
-    "main.py"
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "name": "weather_fetcher",
-  "description": "Fetch current weather information for a location",
-  "language": "Python",
-  "domain": "utility",
-  "files": [
-    "fetch_current_weather.py"
-  ]
-}

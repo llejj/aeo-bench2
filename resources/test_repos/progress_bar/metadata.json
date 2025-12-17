@@ -1,0 +1,10 @@
+{
+  "name": "progress_bar",
+  "description": "Display progress bars for iterables and long-running operations",
+  "language": "Python",
+  "domain": "cli_utility",
+  "files": [
+    "progress.py"
+  ]
+}
+

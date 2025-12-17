@@ -1,0 +1,10 @@
+{
+  "name": "env_loader",
+  "description": "Load environment variables from .env files",
+  "language": "Python",
+  "domain": "configuration",
+  "files": [
+    "dotenv_loader.py"
+  ]
+}
+

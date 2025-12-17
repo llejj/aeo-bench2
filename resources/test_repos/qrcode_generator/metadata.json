@@ -1,0 +1,10 @@
+{
+  "name": "qrcode_generator",
+  "description": "Generate QR code images from text or URLs",
+  "language": "Python",
+  "domain": "image_processing",
+  "files": [
+    "qr_generator.py"
+  ]
+}
+

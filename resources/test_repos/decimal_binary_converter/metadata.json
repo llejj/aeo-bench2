@@ -1,9 +1,0 @@
-{
-  "name": "decimal_binary_converter",
-  "description": "Convert numbers between decimal and binary formats",
-  "language": "Python",
-  "domain": "utility",
-  "files": [
-    "decimal_to_binary.py"
-  ]
-}

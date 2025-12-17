@@ -1,0 +1,15 @@
+{
+  "main_purpose": "Display progress bars for iterables and long-running operations",
+  "dependencies": [],
+  "run_command": "python progress.py",
+  "key_features": [
+    "Wrap iterables with progress bar",
+    "Elapsed time and rate display",
+    "Customizable appearance",
+    "Manual update mode"
+  ],
+  "must_mention": ["sys", "time", "iterable", "progress", "terminal"],
+  "main_file": "progress.py",
+  "output_format": "Terminal progress bar display"
+}
+

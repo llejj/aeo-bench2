@@ -1,9 +1,0 @@
-{
-  "name": "countdown_timer",
-  "description": "Simple countdown timer utility",
-  "language": "Python",
-  "domain": "utility",
-  "files": [
-    "main.py"
-  ]
-}

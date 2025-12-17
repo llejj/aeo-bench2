@@ -10,6 +10,7 @@ import os
 import re
 import httpx
 import uuid
+import asyncio
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
@@ -53,6 +54,7 @@ class TestCase:
     repo_path: Path
     metadata: dict
     ground_truth_readme: Optional[str] = None
+    facts: Optional[dict] = None  # Key facts for accuracy scoring
 
 
 def get_test_repos_path() -> Path:
@@ -95,11 +97,19 @@ def load_test_case(name: str) -> TestCase:
         with open(ground_truth_path, 'r') as f:
             ground_truth_readme = f.read()
     
+    # Load facts.json for accuracy scoring if available
+    facts = None
+    facts_path = repo_path / "ground_truth" / "facts.json"
+    if facts_path.exists():
+        with open(facts_path, 'r') as f:
+            facts = json.load(f)
+    
     return TestCase(
         name=name,
         repo_path=repo_path,
         metadata=metadata,
-        ground_truth_readme=ground_truth_readme
+        ground_truth_readme=ground_truth_readme,
+        facts=facts
     )
 
 
@@ -200,26 +210,249 @@ def execute_tool(tool_name: str, args: dict, test_case: TestCase) -> str:
 
 
 # =============================================================================
-# Scoring
+# Scoring - 4-Tier Rubric (100 points total)
 # =============================================================================
 
-def score_documentation(response: str, ground_truth_readme: Optional[str] = None) -> dict:
+# Keywords for section detection (Tier 2)
+SECTION_KEYWORDS = {
+    "installation": ["install", "pip", "requirements", "setup", "prerequisite", "dependencies"],
+    "usage": ["usage", "how to run", "run", "execute", "command", "python", "cli"],
+    "example": ["example", "output", "demo", "sample", "```"],
+}
+
+
+def detect_sections(readme: str) -> dict:
+    """Detect presence of required documentation sections."""
+    readme_lower = readme.lower()
+    return {
+        section: any(kw in readme_lower for kw in keywords)
+        for section, keywords in SECTION_KEYWORDS.items()
+    }
+
+
+def score_tier1_structural(parsed_data: Optional[dict]) -> tuple[int, dict]:
     """
-    Score the generated documentation.
+    Tier 1: Structural Validity (15 points)
+    - Valid JSON response: 5 points
+    - README present and non-trivial (>100 chars): 5 points
+    - Schema.org metadata structure: 5 points
+    """
+    score = 0
+    details = {}
     
-    Scoring breakdown:
-    - Structural (30 points):
-      - Valid JSON: 10 points
-      - README length > 50 chars: 10 points
-      - Valid schema.org metadata: 10 points
-    - Semantic (70 points) - via LLM judge:
-      - Clarity: 25 points
-      - Completeness: 25 points
-      - Accuracy: 20 points
+    if parsed_data is None:
+        details["valid_json"] = False
+        return score, details
+    
+    # Valid JSON (already parsed)
+    details["valid_json"] = True
+    score += 5
+    
+    # README present and non-trivial
+    readme = parsed_data.get("readme", "")
+    if readme and len(readme) > 100:
+        details["has_readme"] = True
+        details["readme_length"] = len(readme)
+        score += 5
+    else:
+        details["has_readme"] = False
+        details["readme_length"] = len(readme) if readme else 0
+    
+    # Schema.org metadata structure
+    metadata = parsed_data.get("metadata", {})
+    has_context = metadata.get("@context") == "https://schema.org"
+    has_type = bool(metadata.get("@type"))
+    has_name = bool(metadata.get("name"))
+    
+    if has_context and has_type and has_name:
+        details["valid_metadata"] = True
+        score += 5
+    else:
+        details["valid_metadata"] = False
+        details["metadata_issues"] = {
+            "has_context": has_context,
+            "has_type": has_type,
+            "has_name": has_name
+        }
+    
+    return score, details
+
+
+def score_tier2_sections(readme: str) -> tuple[int, dict]:
+    """
+    Tier 2: Required Sections (25 points)
+    - Installation/Setup: 8 points
+    - Usage/How to Run: 9 points
+    - Example/Demo: 8 points
+    """
+    sections = detect_sections(readme)
+    score = 0
+    details = {"sections_found": sections}
+    
+    if sections.get("installation"):
+        score += 8
+    if sections.get("usage"):
+        score += 9
+    if sections.get("example"):
+        score += 8
+    
+    details["sections_score"] = score
+    return score, details
+
+
+def score_tier3_accuracy(readme: str, metadata: dict, facts: Optional[dict]) -> tuple[int, dict]:
+    """
+    Tier 3: Factual Accuracy (30 points) - LLM-judged against facts.json
+    - Correct main purpose: 12 points
+    - Correct dependencies: 10 points
+    - Correct run command: 8 points
+    """
+    if not facts:
+        # No facts available, give partial credit based on general accuracy
+        return 15, {"note": "No facts.json available, partial credit given"}
+    
+    prompt = f"""Evaluate if this documentation accurately describes the code.
+
+GENERATED README:
+{readme[:2000]}
+
+GENERATED METADATA:
+{json.dumps(metadata, indent=2)}
+
+GROUND TRUTH FACTS:
+- Main Purpose: {facts.get('main_purpose', 'N/A')}
+- Dependencies: {facts.get('dependencies', [])}
+- Run Command: {facts.get('run_command', 'N/A')}
+- Must Mention: {facts.get('must_mention', [])}
+
+Score accuracy on these criteria (respond with JSON only):
+1. PURPOSE (0-12): Does the README correctly describe the main purpose?
+2. DEPENDENCIES (0-10): Are the correct dependencies listed?
+3. RUN_COMMAND (0-8): Is there a correct or similar run command?
+
+Respond with JSON:
+{{"purpose": <0-12>, "dependencies": <0-10>, "run_command": <0-8>, "reasoning": "<brief explanation>"}}
+"""
+
+    try:
+        response = completion(
+            messages=[
+                {"role": "system", "content": "You are an accuracy evaluator. Compare generated docs to ground truth facts. Respond with valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            model="openai/gpt-4o-mini",
+            custom_llm_provider="openai",
+            temperature=0.3,
+        )
+        
+        result_text = response.choices[0].message.content.strip()
+        
+        # Parse JSON from response
+        if "```json" in result_text:
+            start = result_text.find("```json") + 7
+            end = result_text.find("```", start)
+            result_text = result_text[start:end].strip()
+        elif result_text.startswith("```"):
+            result_text = result_text[3:result_text.rfind("```")].strip()
+        
+        scores = json.loads(result_text)
+        
+        purpose_score = min(12, max(0, scores.get("purpose", 0)))
+        deps_score = min(10, max(0, scores.get("dependencies", 0)))
+        cmd_score = min(8, max(0, scores.get("run_command", 0)))
+        
+        total = purpose_score + deps_score + cmd_score
+        
+        return total, {
+            "purpose": purpose_score,
+            "dependencies": deps_score,
+            "run_command": cmd_score,
+            "reasoning": scores.get("reasoning", "")
+        }
+    except Exception as e:
+        logger.error(f"Error in Tier 3 accuracy scoring: {e}")
+        return 0, {"error": str(e)}
+
+
+def score_tier4_quality(readme: str, metadata: dict, ground_truth_readme: Optional[str]) -> tuple[int, dict]:
+    """
+    Tier 4: Quality (30 points) - LLM-judged
+    - Clarity and readability: 12 points
+    - Completeness for a new user: 10 points
+    - Professional formatting: 8 points
+    """
+    prompt = f"""Evaluate the quality of this AI-generated documentation.
+
+GENERATED README:
+{readme[:2500]}
+
+{"REFERENCE README (for comparison):" + chr(10) + ground_truth_readme[:1500] if ground_truth_readme else ""}
+
+Score quality on these criteria (respond with JSON only):
+1. CLARITY (0-12): Is it easy to understand? Well-organized with clear explanations?
+2. COMPLETENESS (0-10): Could a new user get started from this documentation alone?
+3. FORMATTING (0-8): Is markdown properly used? Headers, code blocks, lists formatted well?
+
+Respond with JSON:
+{{"clarity": <0-12>, "completeness": <0-10>, "formatting": <0-8>, "feedback": "<brief feedback>"}}
+"""
+
+    try:
+        response = completion(
+            messages=[
+                {"role": "system", "content": "You are a documentation quality evaluator. Respond with valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            model="openai/gpt-4o-mini",
+            custom_llm_provider="openai",
+            temperature=0.3,
+        )
+        
+        result_text = response.choices[0].message.content.strip()
+        
+        # Parse JSON from response
+        if "```json" in result_text:
+            start = result_text.find("```json") + 7
+            end = result_text.find("```", start)
+            result_text = result_text[start:end].strip()
+        elif result_text.startswith("```"):
+            result_text = result_text[3:result_text.rfind("```")].strip()
+        
+        scores = json.loads(result_text)
+        
+        clarity = min(12, max(0, scores.get("clarity", 0)))
+        completeness = min(10, max(0, scores.get("completeness", 0)))
+        formatting = min(8, max(0, scores.get("formatting", 0)))
+        
+        total = clarity + completeness + formatting
+        
+        return total, {
+            "clarity": clarity,
+            "completeness": completeness,
+            "formatting": formatting,
+            "feedback": scores.get("feedback", "")
+        }
+    except Exception as e:
+        logger.error(f"Error in Tier 4 quality scoring: {e}")
+        return 0, {"error": str(e)}
+
+
+def score_documentation(response: str, test_case: Optional['TestCase'] = None) -> dict:
+    """
+    Score the generated documentation using 4-tier rubric.
+    
+    Tier 1: Structural Validity (15 points) - Automated
+    Tier 2: Required Sections (25 points) - Keyword detection
+    Tier 3: Factual Accuracy (30 points) - LLM + facts.json
+    Tier 4: Quality (30 points) - LLM-judged
+    
+    Total: 100 points
     """
     result = {
-        "structural_score": 0,
-        "semantic_score": 0,
+        "tier1_structural": 0,
+        "tier2_sections": 0,
+        "tier3_accuracy": 0,
+        "tier4_quality": 0,
         "total_score": 0,
         "max_score": 100,
         "details": {}
@@ -228,7 +461,6 @@ def score_documentation(response: str, ground_truth_readme: Optional[str] = None
     # Parse response
     parsed_data = None
     try:
-        # Try to extract JSON from response
         text = response.strip()
         
         # Handle markdown code blocks
@@ -242,100 +474,47 @@ def score_documentation(response: str, ground_truth_readme: Optional[str] = None
             text = text[start:end].strip()
         
         parsed_data = json.loads(text)
-        result["details"]["valid_json"] = True
-        result["structural_score"] += 10
-    except json.JSONDecodeError:
-        result["details"]["valid_json"] = False
-        result["details"]["parse_error"] = "Could not parse response as JSON"
+    except json.JSONDecodeError as e:
+        result["details"]["parse_error"] = str(e)
+    
+    # Tier 1: Structural
+    tier1_score, tier1_details = score_tier1_structural(parsed_data)
+    result["tier1_structural"] = tier1_score
+    result["details"]["tier1"] = tier1_details
     
     if parsed_data:
-        # Check README
         readme = parsed_data.get("readme", "")
-        if readme and len(readme) > 50:
-            result["details"]["has_readme"] = True
-            result["structural_score"] += 10
-        else:
-            result["details"]["has_readme"] = False
-        
-        # Check metadata
         metadata = parsed_data.get("metadata", {})
-        if metadata.get("@context") == "https://schema.org" and metadata.get("@type"):
-            result["details"]["has_valid_metadata"] = True
-            result["structural_score"] += 10
-        else:
-            result["details"]["has_valid_metadata"] = False
         
-        # Semantic scoring via LLM
+        # Tier 2: Sections
         if readme:
-            try:
-                semantic_result = score_with_llm(readme, metadata, ground_truth_readme)
-                result["semantic_score"] = semantic_result["score"]
-                result["details"]["semantic"] = semantic_result["feedback"]
-            except Exception as e:
-                logger.error(f"Error in LLM scoring: {e}")
-                result["details"]["semantic_error"] = str(e)
+            tier2_score, tier2_details = score_tier2_sections(readme)
+            result["tier2_sections"] = tier2_score
+            result["details"]["tier2"] = tier2_details
+        
+        # Tier 3: Accuracy (needs facts from test_case)
+        facts = test_case.facts if test_case else None
+        if readme:
+            tier3_score, tier3_details = score_tier3_accuracy(readme, metadata, facts)
+            result["tier3_accuracy"] = tier3_score
+            result["details"]["tier3"] = tier3_details
+        
+        # Tier 4: Quality
+        ground_truth = test_case.ground_truth_readme if test_case else None
+        if readme:
+            tier4_score, tier4_details = score_tier4_quality(readme, metadata, ground_truth)
+            result["tier4_quality"] = tier4_score
+            result["details"]["tier4"] = tier4_details
     
-    result["total_score"] = result["structural_score"] + result["semantic_score"]
-    return result
-
-
-def score_with_llm(readme: str, metadata: dict, ground_truth_readme: Optional[str] = None) -> dict:
-    """Use LLM to score documentation quality."""
-    
-    prompt = f"""Evaluate this AI-generated documentation for a code repository.
-
-GENERATED README:
-{readme[:2000]}{"..." if len(readme) > 2000 else ""}
-
-GENERATED METADATA:
-{json.dumps(metadata, indent=2)}
-
-{"GROUND TRUTH README (for reference):" + chr(10) + ground_truth_readme[:1500] if ground_truth_readme else ""}
-
-Score on these criteria (respond with JSON only):
-1. CLARITY (0-25 points): Is it easy to understand? Well-structured?
-2. COMPLETENESS (0-25 points): Does it cover features, usage, examples?
-3. ACCURACY (0-20 points): Does it seem accurate based on what's described?
-
-Respond with JSON:
-{{"clarity": <0-25>, "completeness": <0-25>, "accuracy": <0-20>, "feedback": "<brief feedback>"}}
-"""
-
-    response = completion(
-        messages=[
-            {"role": "system", "content": "You are a documentation quality evaluator. Respond with valid JSON only."},
-            {"role": "user", "content": prompt}
-        ],
-        model="openai/gpt-4o-mini",
-        custom_llm_provider="openai",
-        temperature=0.3,
+    # Calculate total
+    result["total_score"] = (
+        result["tier1_structural"] +
+        result["tier2_sections"] +
+        result["tier3_accuracy"] +
+        result["tier4_quality"]
     )
     
-    result_text = response.choices[0].message.content.strip()
-    
-    # Parse JSON from response
-    if "```json" in result_text:
-        start = result_text.find("```json") + 7
-        end = result_text.find("```", start)
-        result_text = result_text[start:end].strip()
-    elif result_text.startswith("```"):
-        result_text = result_text[3:result_text.rfind("```")].strip()
-    
-    scores = json.loads(result_text)
-    
-    total = min(25, max(0, scores.get("clarity", 0))) + \
-            min(25, max(0, scores.get("completeness", 0))) + \
-            min(20, max(0, scores.get("accuracy", 0)))
-    
-    return {
-        "score": total,
-        "feedback": {
-            "clarity": scores.get("clarity", 0),
-            "completeness": scores.get("completeness", 0),
-            "accuracy": scores.get("accuracy", 0),
-            "comment": scores.get("feedback", "")
-        }
-    }
+    return result
 
 
 # =============================================================================
@@ -348,32 +527,54 @@ def parse_tags(str_with_tags: str) -> dict:
     return {tag: content.strip() for tag, content in tags}
 
 
-async def get_agent_card(url: str) -> AgentCard | None:
-    httpx_client = httpx.AsyncClient(timeout=60.0)
-    resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
-    card = await resolver.get_agent_card()
-    return card
+async def get_agent_card(url: str, timeout: float = 60.0) -> AgentCard | None:
+    """Get agent card with timeout handling."""
+    try:
+        httpx_client = httpx.AsyncClient(timeout=timeout)
+        resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
+        card = await resolver.get_agent_card()
+        return card
+    except httpx.TimeoutException:
+        logger.error(f"Timeout getting agent card from {url}")
+        raise
+    except Exception as e:
+        logger.error(f"Error getting agent card from {url}: {e}")
+        raise
 
 
-async def send_message(url, message, task_id=None, context_id=None):
-    card = await get_agent_card(url)
-    httpx_client = httpx.AsyncClient(timeout=120.0)
-    client = A2AClient(httpx_client=httpx_client, agent_card=card)
-    
-    message_id = uuid.uuid4().hex
-    params = MessageSendParams(
-        message=Message(
-            role=Role.user,
-            parts=[Part(TextPart(text=message))],
-            message_id=message_id,
-            task_id=task_id,
-            context_id=context_id,
+async def send_message(url, message, task_id=None, context_id=None, timeout: float = 180.0):
+    """Send message to agent with timeout and error handling."""
+    try:
+        card = await get_agent_card(url)
+        httpx_client = httpx.AsyncClient(timeout=timeout)
+        client = A2AClient(httpx_client=httpx_client, agent_card=card)
+        
+        message_id = uuid.uuid4().hex
+        params = MessageSendParams(
+            message=Message(
+                role=Role.user,
+                parts=[Part(TextPart(text=message))],
+                message_id=message_id,
+                task_id=task_id,
+                context_id=context_id,
+            )
         )
-    )
-    request_id = uuid.uuid4().hex
-    req = SendMessageRequest(id=request_id, params=params)
-    response = await client.send_message(request=req)
-    return response
+        request_id = uuid.uuid4().hex
+        req = SendMessageRequest(id=request_id, params=params)
+        
+        # Use asyncio timeout as additional safeguard
+        async with asyncio.timeout(timeout + 30):
+            response = await client.send_message(request=req)
+        return response
+    except asyncio.TimeoutError:
+        logger.error(f"Asyncio timeout sending message to {url}")
+        raise
+    except httpx.TimeoutException:
+        logger.error(f"HTTP timeout sending message to {url}")
+        raise
+    except Exception as e:
+        logger.error(f"Error sending message to {url}: {e}")
+        raise
 
 
 # =============================================================================
@@ -431,18 +632,47 @@ Begin by listing the directory contents.
         logger.info(f"Step {step + 1}/{max_steps}: Sending message to white agent")
         print(f"@@@ Green agent: Sending message to white agent{'ctx_id=' + str(context_id) if context_id else ''}... -->\n{next_message}")
         
-        # Send message to white agent
-        response = await send_message(white_agent_url, next_message, context_id=context_id)
+        # Send message to white agent with error handling
+        try:
+            response = await send_message(white_agent_url, next_message, context_id=context_id)
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout on step {step + 1}")
+            return {
+                "test_case": test_case.name,
+                "error": f"Timeout on step {step + 1}",
+                "steps_taken": step + 1,
+                "total_score": 0,
+                "max_score": 100
+            }
+        except Exception as e:
+            logger.error(f"Error on step {step + 1}: {e}")
+            return {
+                "test_case": test_case.name,
+                "error": f"Communication error: {str(e)[:100]}",
+                "steps_taken": step + 1,
+                "total_score": 0,
+                "max_score": 100
+            }
         
         res_root = response.root
         if not isinstance(res_root, SendMessageSuccessResponse):
             logger.error(f"Unexpected response type: {type(res_root)}")
-            return {"error": "Unexpected response from white agent", "score": 0}
+            return {
+                "test_case": test_case.name,
+                "error": "Unexpected response from white agent",
+                "total_score": 0,
+                "max_score": 100
+            }
         
         res_result = res_root.result
         if not isinstance(res_result, Message):
             logger.error(f"Unexpected result type: {type(res_result)}")
-            return {"error": "Unexpected result from white agent", "score": 0}
+            return {
+                "test_case": test_case.name,
+                "error": "Unexpected result from white agent",
+                "total_score": 0,
+                "max_score": 100
+            }
         
         # Track context for conversation continuity
         if context_id is None:
@@ -452,7 +682,12 @@ Begin by listing the directory contents.
         text_parts = get_text_parts(res_result.parts)
         if not text_parts:
             logger.error("No text parts in response")
-            return {"error": "Empty response from white agent", "score": 0}
+            return {
+                "test_case": test_case.name,
+                "error": "Empty response from white agent",
+                "total_score": 0,
+                "max_score": 100
+            }
         
         white_text = text_parts[0]
         print(f"@@@ White agent response:\n{white_text}")
@@ -469,7 +704,12 @@ Begin by listing the directory contents.
                     json_end = white_text.rfind("}") + 1
                     action_json = white_text[json_start:json_end]
                 else:
-                    return {"error": "Could not parse action from response", "score": 0}
+                    return {
+                        "test_case": test_case.name,
+                        "error": "Could not parse action from response",
+                        "total_score": 0,
+                        "max_score": 100
+                    }
             else:
                 action_json = tags["json"]
             
@@ -479,7 +719,12 @@ Begin by listing the directory contents.
             
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Error parsing action: {e}")
-            return {"error": f"Could not parse action: {e}", "score": 0}
+            return {
+                "test_case": test_case.name,
+                "error": f"Could not parse action: {e}",
+                "total_score": 0,
+                "max_score": 100
+            }
         
         # Handle the action
         if action_name == RESPOND_ACTION_NAME:
@@ -492,7 +737,7 @@ Begin by listing the directory contents.
                 "metadata": action_kwargs.get("metadata", {})
             })
             
-            score_result = score_documentation(final_response, test_case.ground_truth_readme)
+            score_result = score_documentation(final_response, test_case)
             return {
                 "test_case": test_case.name,
                 "steps_taken": step + 1,
@@ -516,7 +761,9 @@ Continue exploring or submit your final documentation when ready."""
     return {
         "test_case": test_case.name,
         "error": "Max steps reached without final documentation",
-        "score": 0
+        "steps_taken": max_steps,
+        "total_score": 0,
+        "max_score": 100
     }
 
 
@@ -613,6 +860,12 @@ Average Score: {avg_score:.1f}/100
 Time: {time_used:.1f}s
 Test Cases: {len(results)}
 
+Scoring Rubric:
+  Tier 1 - Structural (15 pts): Valid JSON, README exists, metadata schema
+  Tier 2 - Sections (25 pts): Installation, Usage, Examples present
+  Tier 3 - Accuracy (30 pts): Correct purpose, dependencies, commands
+  Tier 4 - Quality (30 pts): Clarity, completeness, formatting
+
 Individual Results:
 """
         for r in results:
@@ -620,6 +873,13 @@ Individual Results:
             summary += f"  {status} {r.get('test_case', 'unknown')}: {r.get('total_score', 0)}/{r.get('max_score', 100)}"
             if "error" in r:
                 summary += f" (Error: {r['error'][:50]}...)"
+            else:
+                # Show tier breakdown
+                t1 = r.get('tier1_structural', 0)
+                t2 = r.get('tier2_sections', 0)
+                t3 = r.get('tier3_accuracy', 0)
+                t4 = r.get('tier4_quality', 0)
+                summary += f" [T1:{t1}/15 T2:{t2}/25 T3:{t3}/30 T4:{t4}/30]"
             summary += "\n"
         
         logger.info(summary)
