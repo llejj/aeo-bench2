@@ -8,14 +8,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Fixed domain for named tunnel
+DOMAIN="763324.uk"
+TUNNEL_NAME="aeo-bench"
+
 # Cleanup function
 cleanup() {
     echo ""
     echo "Shutting down all services..."
-    kill $(jobs -p) 2>/dev/null
+    kill $(jobs -p) 2>/dev/null || true
     # Stop nginx
     nginx -s stop -c "$SCRIPT_DIR/nginx.conf" 2>/dev/null || true
-    rm -f /tmp/cloudflared-$$.log /tmp/nginx.pid /tmp/nginx_error.log /tmp/nginx_access.log
+    # Kill cloudflared tunnel
+    pkill -f "cloudflared.*$TUNNEL_NAME" 2>/dev/null || true
+    rm -f /tmp/nginx.pid /tmp/nginx_error.log /tmp/nginx_access.log
     exit 0
 }
 
@@ -30,7 +36,7 @@ echo "Cleaning up old processes..."
 lsof -ti :8080 | xargs kill -9 2>/dev/null || true
 lsof -ti :8010 | xargs kill -9 2>/dev/null || true
 lsof -ti :8011 | xargs kill -9 2>/dev/null || true
-pkill -f cloudflared 2>/dev/null || true
+pkill -f "cloudflared.*$TUNNEL_NAME" 2>/dev/null || true
 nginx -s stop -c "$SCRIPT_DIR/nginx.conf" 2>/dev/null || true
 
 # Clean up stale agent state directories and nginx files
@@ -47,29 +53,17 @@ echo "[PROXY]   /green/* -> localhost:8010"
 echo "[PROXY]   /white/* -> localhost:8011"
 sleep 1
 
-# Start cloudflared and capture URL
-echo "[2/4] Starting Cloudflare Tunnel..."
-cloudflared tunnel --url http://localhost:8080 2>&1 | tee /tmp/cloudflared-$$.log | sed 's/^/[TUNNEL] /' &
+# Start named cloudflared tunnel
+echo "[2/4] Starting Cloudflare Tunnel ($TUNNEL_NAME)..."
+cloudflared tunnel --url http://localhost:8080 run "$TUNNEL_NAME" 2>&1 | sed 's/^/[TUNNEL] /' &
 CLOUDFLARED_PID=$!
 
-# Wait for cloudflared to output the URL
-echo "Waiting for tunnel URL..."
-for i in {1..30}; do
-    DOMAIN=$(grep -o 'https://[^[:space:]]*\.trycloudflare\.com' /tmp/cloudflared-$$.log 2>/dev/null | head -1 | sed 's|https://||')
-    if [ -n "$DOMAIN" ]; then
-        break
-    fi
-    sleep 1
-done
-
-if [ -z "$DOMAIN" ]; then
-    echo "ERROR: Could not get cloudflared tunnel URL"
-    exit 1
-fi
+# Give tunnel a moment to connect
+sleep 3
 
 echo ""
 echo "=============================================="
-echo "Tunnel URL: https://$DOMAIN"
+echo "Tunnel: https://$DOMAIN"
 echo "=============================================="
 echo ""
 
@@ -97,4 +91,3 @@ echo "=============================================="
 
 # Wait for all background jobs
 wait
-

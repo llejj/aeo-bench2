@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/green"
 source "$SCRIPT_DIR/.venv/bin/activate"
 
-DOMAIN="${DOMAIN:-lisandra-aqueous-davin.ngrok-free.dev}"
+DOMAIN="${DOMAIN:-763324.uk}"
 export HTTPS_ENABLED=true
 export CLOUDRUN_HOST="$DOMAIN/green"
 export PORT=8010
