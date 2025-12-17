@@ -214,23 +214,56 @@ Individual Results:
   ✅ pyfiglet_github: 76/100 [T1:15/15 T2:25/25 T3:20/30 T4:16/30]
 ```
 
+## CLI Commands
+
+Available commands for running and testing:
+
+```bash
+# Start all agents with Cloudflare tunnel (for AgentBeats platform)
+./start_all.sh
+
+# Start green agent only (evaluation manager)
+uv run python main.py green
+
+# Start white agent only (documentation generator)
+uv run python main.py white
+
+# Run local evaluation with both agents
+uv run python main.py launch
+
+# Validate scoring rubric with test cases (Q8.5)
+uv run python main.py validate
+```
+
 ## Reproducibility
 
 To reproduce evaluation results:
 
 ```bash
-# Run full evaluation
+# Run full evaluation with all 6 test cases
 ./start_all.sh
+# Then trigger evaluation via AgentBeats platform
 
-# Or run with specific configuration
-uv run python main.py launch --test-ids 0,1,2,3
+# Or run locally with specific test cases
+uv run python main.py launch  # Runs first 3 test cases by default
 ```
 
 Logs are written to `/tmp/green_agent.log` for debugging.
 
 ## Rubric Validation
 
-The scoring system includes built-in validation to ensure consistent and accurate evaluation:
+The scoring system includes built-in validation to ensure consistent and accurate evaluation.
+
+### CLI Command
+
+```bash
+# Validate the scoring rubric with hardcoded test cases
+uv run python main.py validate
+```
+
+This runs 3 predefined documentation examples through the scorer and verifies scores fall within expected ranges.
+
+### Python API
 
 ```python
 from green.agent import validate_rubric

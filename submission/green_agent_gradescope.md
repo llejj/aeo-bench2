@@ -139,3 +139,32 @@ Your video should demonstrate how your green agent evaluates outputs from white 
 1. Keep it concise—5 minutes max.
 2. You may record a screen-share walkthrough or an edited short demo.
 3. Audio narration or captions are encouraged for clarity.
+
+---
+
+## Q10 Implementation and Documentation (or Report for Research Track) on GitHub (5 Points)
+
+Provide the repo of your implementation and the branch. Please make it public, otherwise it will be counted as no submission.
+
+**You need to have a README in the repo documenting how to use it:**
+- Document the commands for running white agents to complete the task and running green agent to evaluate the white agents.
+- Document the commands for testing green agent's evaluation results on some test cases.
+- Document the commands for reproducing the results in the original benchmark if you are implementing an existing benchmark.
+
+Make sure the benchmark / green agent is runnable on AgentBeats.
+
+If you are in research track, you can include a PDF of the report of the research project in the repo.
+
+---
+
+## Q11 AgentBeats Assessment Link (5 Points)
+
+Please provide the link to an assessment on AgentBeats platform in which your green agent evaluates a white agent.
+
+---
+
+## Q12 AgentX-AgentBeats Competition (0.5 Points)
+
+Have you registered in AgentX-AgentBeats Competition? If so, please also provide the email address and team name you used for your competition submission.
+
+*You won't lose any points if you answer No. It's just for collecting information for bonus points.*

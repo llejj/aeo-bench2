@@ -1,0 +1,163 @@
+Q6 Abstract
+
+The white agent is a documentation generation agent tested on AEO-Bench, a benchmark that evaluates how effectively AI agents transform raw code into well-documented, discoverable forms. Given access to source code files through exploration tools (list_directory and read_file), the white agent must produce a comprehensive README and schema.org metadata for each test repository. The agent uses GPT-4o with conversation history to explore repositories iteratively, gathering information about project structure, dependencies, and functionality before generating documentation. Performance is evaluated across 6 test cases spanning 4 domains (security utilities, text processing, CLI utilities, and ASCII art libraries) using a 4-tier scoring rubric that measures structural validity, section coverage, factual accuracy, and documentation quality.
+
+
+Q7.1 Agent Framework Design
+
+The white agent follows a straightforward tool-augmented reasoning architecture:
+
+Decision Making Pipeline:
+1. Receive task description with available tools from the green agent
+2. Maintain conversation history for multi-turn interactions
+3. Call GPT-4o with accumulated context to decide next action
+4. Return either a tool call or final documentation response
+
+Inputs and Outputs:
+- Input at each step: Previous conversation history plus new message (task description or tool result)
+- Output at each step: JSON response wrapped in <json> tags containing either a tool call {"name": "<tool>", "kwargs": {...}} or final response {"name": "respond", "kwargs": {"readme": "...", "metadata": {...}}}
+
+Module Architecture:
+- Conversation History Manager: Dictionary mapping context_id to message lists, enabling stateful multi-turn conversations
+- LiteLLM Interface: Calls openai/gpt-4o with temperature 0.3 for reproducible responses
+- A2A Executor: Implements AgentExecutor interface, handles incoming messages and returns responses via EventQueue
+
+Reasoning Approach:
+The agent uses tool-augmented reasoning without explicit chain-of-thought prompting. The system prompt instructs the agent to always explore the repository first by listing directories and reading files before generating documentation. This iterative exploration pattern naturally emerges from the tool-based interaction loop: the agent typically lists the root directory, reads key source files, identifies dependencies, and then submits comprehensive documentation.
+
+
+Q7.2 Data and Evaluation Design
+
+Test Data:
+The white agent is tested on 6 repositories divided into two categories:
+
+Synthetic Test Cases (3): Hand-crafted projects with clean, uncontaminated code
+- password_generator: Security utility for generating random passwords
+- countdown_timer: CLI countdown timer with stopwatch mode
+- word_counter: Text processing tool similar to Unix wc command
+
+Real GitHub Repositories (3): Cloned from actual open-source projects
+- art_github: ASCII art library with 677 fonts (2k+ stars)
+- dotenv_github: python-dotenv for loading .env files (7k+ stars)
+- pyfiglet_github: ASCII text banner generator (1.4k+ stars)
+
+Evaluation Metrics:
+The 4-tier scoring rubric totals 100 points:
+- Tier 1 Structural (15 pts): Valid JSON, README >100 chars, schema.org metadata
+- Tier 2 Sections (25 pts): Installation (8), Usage (9), Examples (8) via keyword detection
+- Tier 3 Accuracy (30 pts): Purpose (12), Dependencies (10), Run command (8) via LLM judge
+- Tier 4 Quality (30 pts): Clarity (12), Completeness (10), Formatting (8) via LLM judge
+
+System Prompt:
+The white agent's system prompt instructs it to:
+1. Use list_directory and read_file tools to explore the repository
+2. Respond with JSON wrapped in <json> tags
+3. Generate README with title, description, features, installation, usage examples, and API reference
+4. Include schema.org metadata with @context, @type, name, description, and programmingLanguage
+
+Main Results:
+Typical scores range from 70-85/100 across test cases, with higher scores on synthetic cases (cleaner structure) and slightly lower on complex real repositories. The agent consistently achieves full marks on Tier 1 (structural) and Tier 2 (sections), with variation primarily in Tier 3 (accuracy) and Tier 4 (quality) depending on how thoroughly the agent explores each repository.
+
+
+Q8.1 Performance Improvement Over Existing Baselines
+
+Baseline Comparisons:
+1. No-exploration baseline: An agent that generates documentation without using tools would score poorly on Tier 3 (accuracy) since it cannot learn about actual dependencies, run commands, or project purpose.
+2. Single-file baseline: An agent that only reads one file misses context from other files, reducing accuracy.
+
+Our White Agent Improvements:
+- Iterative exploration: The agent typically takes 3-5 tool calls to build understanding
+- Conversation history: Accumulated context helps generate more coherent documentation
+- Structured output: JSON format with separate readme and metadata fields ensures structural validity
+
+Key Design Factors:
+1. Tool-augmented reasoning: Exploration before documentation generation improves accuracy
+2. Temperature 0.3: Balances creativity with consistency
+3. Clear system prompt: Explicit instructions for output format reduce parsing errors
+
+
+Q8.2 Generalizability to Different Test Scenarios
+
+Domain Generalization:
+The white agent is tested across 4 different domains without any domain-specific tuning:
+- Security utilities (password_generator)
+- Text processing (word_counter)
+- CLI utilities (countdown_timer)
+- ASCII art libraries (art_github, pyfiglet_github, dotenv_github)
+
+Repository Type Generalization:
+- Synthetic repositories: Simple single-file projects with no dependencies
+- Real repositories: Complex multi-file projects with external dependencies
+
+The agent achieves comparable performance (70-85% scores) across all domains and repository types, demonstrating that the exploration-based approach generalizes without requiring task-specific modifications.
+
+
+Q8.3 Reasoning Quality and Interpretability
+
+High-Quality Trajectory Example 1 (password_generator):
+Step 1: Agent lists root directory, sees password_gen.py and metadata.json
+Step 2: Agent reads password_gen.py, identifies argparse CLI, string/random imports
+Step 3: Agent responds with documentation covering all features, correct run command
+
+High-Quality Trajectory Example 2 (dotenv_github):
+Step 1: Agent lists root directory, identifies dotenv/ package and setup.py
+Step 2: Agent reads dotenv/main.py to understand core functionality
+Step 3: Agent reads setup.py for dependencies and package metadata
+Step 4: Agent responds with accurate documentation about load_dotenv usage
+
+Failure Case Analysis (pyfiglet_github):
+Step 1: Agent lists root directory
+Step 2: Agent reads only the top-level __init__.py, missing the fonts directory
+Step 3: Agent generates documentation but misses detail about included fonts
+Analysis: The agent could improve by exploring subdirectories more thoroughly. The failure stemmed from incomplete exploration rather than reasoning errors.
+
+
+Q8.4 Efficiency and Resource Use
+
+Step Efficiency:
+- Average steps per test case: 3-5 (list root, read 1-3 files, respond)
+- Maximum steps allowed: 15 (rarely approached)
+- Typical completion time: 20-40 seconds per test case
+
+Token Efficiency:
+- Input tokens per step: ~1000-2000 (system prompt + history + tool results)
+- Output tokens per step: ~200-500 (tool call or documentation)
+- Total tokens per test case: ~5000-10000
+
+The agent is reasonably efficient, completing tasks well under the step limit. Token usage scales with repository complexity (larger files = more tokens).
+
+
+Q8.5 Bias, Overfitting, or Contamination Checks
+
+Contamination Prevention:
+1. Synthetic test cases: Hand-crafted specifically for this benchmark, guaranteed not in training data
+2. Ground truth isolation: White agent cannot access ground_truth/ directories containing expected answers
+3. Real repository selection: Chosen for being less prominent to reduce memorization risk
+
+No Overfitting:
+- The white agent uses a single system prompt for all test cases
+- No test-case-specific tuning or few-shot examples
+- Temperature 0.3 provides consistency without determinism
+
+Answer Leakage Prevention:
+- The execute_tool function checks for "ground_truth" in file paths and returns an error
+- Agent can only access source code files, not evaluation data
+
+
+Q8.6 Impact, Reusability, and Documentation Quality
+
+Reusability:
+- The white agent is implemented as a standalone module (white/agent.py)
+- Uses standard A2A protocol for communication
+- Can be swapped with any other A2A-compatible agent for comparison
+
+Modularity:
+- Agent executor (AEOWhiteAgentExecutor) is separate from server setup
+- System prompt is easily customizable
+- Conversation history management is context_id based for multi-tenant support
+
+Documentation:
+- README.md provides comprehensive usage instructions
+- CLI commands documented for all operations
+- Agent card (agent_card.toml) describes capabilities
+- Code includes logging for debugging (writes to /tmp/white_agent.log)

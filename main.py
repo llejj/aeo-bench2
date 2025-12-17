@@ -27,6 +27,22 @@ def launch():
     asyncio.run(launch_evaluation())
 
 
+@app.command()
+def validate():
+    """Run rubric validation with hardcoded test cases.
+
+    This validates that the 4-tier scoring rubric produces expected results
+    on predefined documentation examples (perfect, partial, minimal).
+    Used for Q8.5 validation in the submission.
+    """
+    from green.agent import validate_rubric
+    results = validate_rubric(verbose=True)
+    if results["failed"] > 0:
+        print(f"\nValidation FAILED: {results['failed']} test case(s) did not pass")
+        raise typer.Exit(code=1)
+    print(f"\nValidation PASSED: All {results['passed']} test case(s) within expected ranges")
+
+
 async def launch_evaluation():
     """Launch both agents and run evaluation."""
     import multiprocessing
