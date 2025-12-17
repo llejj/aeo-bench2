@@ -39,7 +39,7 @@ def load_agent_card_toml(agent_name):
         return tomllib.load(f)
 
 
-async def ask_agent_to_solve(white_agent_url, env, task_index, max_num_steps=30):
+async def ask_agent_to_solve(white_agent_url, env, task_index, max_num_steps=5):
     # migrated from https://github.com/sierra-research/tau-bench/blob/4754e6b406507dbcbce8e8b3855dcf80aaec18ac/tau_bench/agents/tool_calling_agent.py#L27
     total_cost = 0.0
     env_reset_res = env.reset(task_index=task_index)
