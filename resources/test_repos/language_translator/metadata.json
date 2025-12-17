@@ -1,0 +1,9 @@
+{
+  "name": "language_translator",
+  "description": "Translate text between languages using Google Translate",
+  "language": "Python",
+  "domain": "utility",
+  "files": [
+    "translator.py"
+  ]
+}

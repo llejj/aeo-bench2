@@ -1,0 +1,9 @@
+{
+  "name": "spell_checker",
+  "description": "Check spelling of words using textblob",
+  "language": "Python",
+  "domain": "utility",
+  "files": [
+    "spell_checker.py"
+  ]
+}

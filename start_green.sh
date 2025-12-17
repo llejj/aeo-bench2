@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start the GREEN agent (Assessment Manager) on port 8010
+# Start the GREEN agent (AEO Evaluation Manager) on port 8010
 # Accessed via: https://domain/green/...
 
 set -e
@@ -14,7 +14,7 @@ export PORT=8010
 export PYTHONUNBUFFERED=1
 
 echo "=============================================="
-echo "Starting GREEN agent (Assessment Manager)"
+echo "Starting GREEN agent (AEO Evaluation Manager)"
 echo "=============================================="
 echo "Controller port: $PORT"
 echo "External URL: https://$CLOUDRUN_HOST"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start the WHITE agent (Target Being Tested) on port 8011
+# Start the WHITE agent (Documentation Generator) on port 8011
 # Accessed via: https://domain/white/...
 
 set -e
@@ -14,7 +14,7 @@ export PORT=8011
 export PYTHONUNBUFFERED=1
 
 echo "=============================================="
-echo "Starting WHITE agent (Target Being Tested)"
+echo "Starting WHITE agent (Documentation Generator)"
 echo "=============================================="
 echo "Controller port: $PORT"
 echo "External URL: https://$CLOUDRUN_HOST"

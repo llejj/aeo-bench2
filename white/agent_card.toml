@@ -1,0 +1,20 @@
+name = "aeo_white_agent"
+description = "Documentation generator agent for AEO-bench evaluation."
+version = "0.1.0"
+
+defaultInputModes = ["text"]
+defaultOutputModes = ["text"]
+
+[capabilities]
+streaming = false
+
+[[skills]]
+id = "generate_documentation"
+name = "Documentation Generation"
+description = """
+Generate AEO-optimized documentation for code repositories.
+Uses file exploration tools to understand the codebase, then produces README and metadata.
+"""
+tags = ["white agent", "documentation", "aeo"]
+examples = ["Generate documentation for the given code repository."]
+

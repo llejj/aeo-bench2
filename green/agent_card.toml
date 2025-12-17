@@ -1,0 +1,31 @@
+name = "aeo_green_agent"
+description = "The assessment hosting agent for AEO-bench. Evaluates documentation generation quality."
+version = "0.1.0"
+
+defaultInputModes = ["text"]
+defaultOutputModes = ["text"]
+
+[capabilities]
+streaming = false
+
+[[skills]]
+id = "host_assess_aeo_bench"
+name = "AEO-bench assessment hosting"
+description = """
+Assess the documentation generation ability of an agent.
+Provides file exploration tools and scores the generated documentation.
+"""
+tags = ["green agent", "assessment hosting", "aeo-bench"]
+examples = ["""    
+Your task is to evaluate the agent located at:
+<white_agent_url>
+http://localhost:9002/
+</white_agent_url>
+You should use the following test configuration:
+<test_config>
+{
+  "test_ids": [0, 1, 2]
+}
+</test_config>
+    """]
+

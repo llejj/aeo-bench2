@@ -1,5 +1,5 @@
 #!/bin/bash
-# Single command to start all services with Cloudflare Tunnel
+# Single command to start all AEO-Bench services with Cloudflare Tunnel
 # Usage: ./start_all.sh
 # Press Ctrl+C to stop everything
 
@@ -28,7 +28,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 echo "=============================================="
-echo "Starting all services..."
+echo "Starting AEO-Bench services..."
 echo "=============================================="
 
 # Kill any leftover processes from previous runs
@@ -68,23 +68,23 @@ echo "=============================================="
 echo ""
 
 # Start agents
-echo "[3/4] Starting GREEN agent..."
+echo "[3/4] Starting GREEN agent (Evaluation Manager)..."
 DOMAIN="$DOMAIN" ./start_green.sh 2>&1 | sed 's/^/[GREEN] /' &
 GREEN_PID=$!
 sleep 2
 
-echo "[4/4] Starting WHITE agent..."
+echo "[4/4] Starting WHITE agent (Documentation Generator)..."
 DOMAIN="$DOMAIN" ./start_white.sh 2>&1 | sed 's/^/[WHITE] /' &
 WHITE_PID=$!
 sleep 2
 
 echo ""
 echo "=============================================="
-echo "All services running!"
+echo "AEO-Bench services running!"
 echo "=============================================="
 echo ""
-echo "Green Agent: https://$DOMAIN/green"
-echo "White Agent: https://$DOMAIN/white"
+echo "Green Agent (Evaluator): https://$DOMAIN/green"
+echo "White Agent (Generator): https://$DOMAIN/white"
 echo ""
 echo "Press Ctrl+C to stop all services"
 echo "=============================================="
