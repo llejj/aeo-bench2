@@ -1,0 +1,16 @@
+{
+  "main_purpose": "Read key-value pairs from .env file and set them as environment variables",
+  "dependencies": [],
+  "run_command": "from dotenv import load_dotenv; load_dotenv()",
+  "key_features": [
+    "load_dotenv to load .env into os.environ",
+    "dotenv_values to get dict without modifying environ",
+    "Variable expansion with ${VAR} syntax",
+    "Override option for existing variables",
+    "CLI interface for managing .env files",
+    "find_dotenv to locate .env files"
+  ],
+  "must_mention": ["load_dotenv", "dotenv_values", ".env", "environment", "os.environ"],
+  "main_file": "src/dotenv/main.py"
+}
+

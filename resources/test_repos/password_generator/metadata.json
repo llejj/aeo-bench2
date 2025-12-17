@@ -1,0 +1,8 @@
+{
+  "name": "password_generator",
+  "description": "Generate secure random passwords with customizable options",
+  "language": "Python",
+  "domain": "security",
+  "files": ["password_gen.py"]
+}
+

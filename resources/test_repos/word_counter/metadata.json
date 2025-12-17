@@ -1,0 +1,8 @@
+{
+  "name": "word_counter",
+  "description": "Count words, lines, and characters in text files",
+  "language": "Python",
+  "domain": "text_processing",
+  "files": ["wordcount.py"]
+}
+

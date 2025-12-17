@@ -127,11 +127,6 @@ TOOLS_INFO = [
         "name": "read_file",
         "description": "Read the contents of a file within the repository",
         "parameters": {"path": "string - relative path to file within repo"}
-    },
-    {
-        "name": "get_project_info",
-        "description": "Get project name and description from metadata",
-        "parameters": {}
     }
 ]
 
@@ -196,15 +191,6 @@ def execute_tool(tool_name: str, args: dict, test_case: TestCase) -> str:
         except Exception as e:
             return f"Error reading file: {e}"
     
-    elif tool_name == "get_project_info":
-        return json.dumps({
-            "name": test_case.metadata.get("name", test_case.name),
-            "description": test_case.metadata.get("description", "No description available"),
-            "language": test_case.metadata.get("language", "Unknown"),
-            "domain": test_case.metadata.get("domain", "Unknown"),
-            "files": test_case.metadata.get("files", [])
-        }, indent=2)
-    
     else:
         return f"Error: Unknown tool '{tool_name}'"
 
@@ -249,17 +235,17 @@ def score_tier1_structural(parsed_data: Optional[dict]) -> tuple[int, dict]:
     score += 5
     
     # README present and non-trivial
-    readme = parsed_data.get("readme", "")
+        readme = parsed_data.get("readme", "")
     if readme and len(readme) > 100:
         details["has_readme"] = True
         details["readme_length"] = len(readme)
         score += 5
-    else:
+        else:
         details["has_readme"] = False
         details["readme_length"] = len(readme) if readme else 0
-    
+        
     # Schema.org metadata structure
-    metadata = parsed_data.get("metadata", {})
+        metadata = parsed_data.get("metadata", {})
     has_context = metadata.get("@context") == "https://schema.org"
     has_type = bool(metadata.get("@type"))
     has_name = bool(metadata.get("name"))
@@ -267,7 +253,7 @@ def score_tier1_structural(parsed_data: Optional[dict]) -> tuple[int, dict]:
     if has_context and has_type and has_name:
         details["valid_metadata"] = True
         score += 5
-    else:
+        else:
         details["valid_metadata"] = False
         details["metadata_issues"] = {
             "has_context": has_context,
@@ -398,28 +384,28 @@ Respond with JSON:
 """
 
     try:
-        response = completion(
-            messages=[
-                {"role": "system", "content": "You are a documentation quality evaluator. Respond with valid JSON only."},
-                {"role": "user", "content": prompt}
-            ],
-            model="openai/gpt-4o-mini",
-            custom_llm_provider="openai",
-            temperature=0.3,
-        )
-        
-        result_text = response.choices[0].message.content.strip()
-        
-        # Parse JSON from response
-        if "```json" in result_text:
-            start = result_text.find("```json") + 7
-            end = result_text.find("```", start)
-            result_text = result_text[start:end].strip()
-        elif result_text.startswith("```"):
-            result_text = result_text[3:result_text.rfind("```")].strip()
-        
-        scores = json.loads(result_text)
-        
+    response = completion(
+        messages=[
+            {"role": "system", "content": "You are a documentation quality evaluator. Respond with valid JSON only."},
+            {"role": "user", "content": prompt}
+        ],
+        model="openai/gpt-4o-mini",
+        custom_llm_provider="openai",
+        temperature=0.3,
+    )
+    
+    result_text = response.choices[0].message.content.strip()
+    
+    # Parse JSON from response
+    if "```json" in result_text:
+        start = result_text.find("```json") + 7
+        end = result_text.find("```", start)
+        result_text = result_text[start:end].strip()
+    elif result_text.startswith("```"):
+        result_text = result_text[3:result_text.rfind("```")].strip()
+    
+    scores = json.loads(result_text)
+    
         clarity = min(12, max(0, scores.get("clarity", 0)))
         completeness = min(10, max(0, scores.get("completeness", 0)))
         formatting = min(8, max(0, scores.get("formatting", 0)))
@@ -518,6 +504,193 @@ def score_documentation(response: str, test_case: Optional['TestCase'] = None) -
 
 
 # =============================================================================
+# Rubric Validation (Q8.5)
+# =============================================================================
+
+# Hardcoded validation test cases with expected score ranges
+VALIDATION_CASES = [
+    {
+        "name": "perfect_documentation",
+        "description": "Complete, well-structured documentation with all required sections",
+        "doc": {
+            "readme": """# QR Code Generator
+
+A Python tool for generating QR codes from text or URLs.
+
+## Installation
+
+Install using pip:
+
+```bash
+pip install qrcode pillow
+```
+
+## Usage
+
+Generate a QR code:
+
+```bash
+python qr_generator.py "Hello World"
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-o` | Output file path |
+| `-s` | QR code size |
+
+## Examples
+
+```python
+from qr_generator import generate_qr
+generate_qr("https://example.com", "output.png")
+```
+
+## Dependencies
+
+- qrcode
+- pillow
+
+## License
+
+MIT
+""",
+            "metadata": {
+                "@context": "https://schema.org",
+                "@type": "SoftwareSourceCode",
+                "name": "QR Code Generator",
+                "description": "Generate QR codes from text or URLs",
+                "programmingLanguage": "Python"
+            }
+        },
+        "expected_ranges": {
+            "tier1_structural": (14, 15),
+            "tier2_sections": (23, 25),
+            "tier3_accuracy": (20, 30),  # Depends on facts.json
+            "tier4_quality": (22, 30),
+            "total": (75, 100)
+        }
+    },
+    {
+        "name": "partial_documentation",
+        "description": "Incomplete documentation missing some sections",
+        "doc": {
+            "readme": """# Project
+
+This is a Python project that does something useful.
+
+## How to Run
+
+Run with: python main.py
+
+The output will be printed to console.
+""",
+            "metadata": {
+                "@context": "https://schema.org",
+                "@type": "SoftwareSourceCode"
+            }
+        },
+        "expected_ranges": {
+            "tier1_structural": (8, 10),  # Missing name in metadata
+            "tier2_sections": (8, 17),    # Has usage but missing install/examples
+            "tier3_accuracy": (10, 20),
+            "tier4_quality": (10, 20),
+            "total": (35, 65)
+        }
+    },
+    {
+        "name": "minimal_documentation",
+        "description": "Minimal documentation that barely meets requirements",
+        "doc": {
+            "readme": "# Project\n\nA project readme.",
+            "metadata": {}
+        },
+        "expected_ranges": {
+            "tier1_structural": (5, 5),   # Valid JSON but no README >100 chars, no metadata
+            "tier2_sections": (0, 0),     # No sections detected
+            "tier3_accuracy": (5, 15),    # LLM might give some partial credit
+            "tier4_quality": (5, 15),
+            "total": (15, 35)
+        }
+    }
+]
+
+
+def validate_rubric(verbose: bool = True) -> dict:
+    """
+    Validate the scoring rubric using hardcoded test cases.
+    
+    This function runs predefined documentation examples through the scoring
+    system and verifies that scores fall within expected ranges.
+    
+    Returns:
+        dict with validation results for each test case
+    """
+    results = {
+        "passed": 0,
+        "failed": 0,
+        "cases": []
+    }
+    
+    for case in VALIDATION_CASES:
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"Validating: {case['name']}")
+            print(f"Description: {case['description']}")
+        
+        # Score the documentation (without test_case for accuracy, use None)
+        doc_json = json.dumps(case["doc"])
+        score_result = score_documentation(doc_json, test_case=None)
+        
+        # Check if scores are within expected ranges
+        case_passed = True
+        tier_results = {}
+        
+        for tier, (min_expected, max_expected) in case["expected_ranges"].items():
+            if tier == "total":
+                actual = score_result["total_score"]
+            else:
+                actual = score_result.get(tier, 0)
+            
+            in_range = min_expected <= actual <= max_expected
+            tier_results[tier] = {
+                "actual": actual,
+                "expected_range": (min_expected, max_expected),
+                "passed": in_range
+            }
+            
+            if not in_range:
+                case_passed = False
+            
+            if verbose:
+                status = "✅" if in_range else "❌"
+                print(f"  {status} {tier}: {actual} (expected {min_expected}-{max_expected})")
+        
+        if case_passed:
+            results["passed"] += 1
+            if verbose:
+                print(f"  Result: PASSED ✅")
+        else:
+            results["failed"] += 1
+            if verbose:
+                print(f"  Result: FAILED ❌")
+        
+        results["cases"].append({
+            "name": case["name"],
+            "passed": case_passed,
+            "tiers": tier_results,
+            "total_score": score_result["total_score"]
+        })
+    
+    if verbose:
+        print(f"\n{'='*60}")
+        print(f"Validation Summary: {results['passed']}/{len(VALIDATION_CASES)} passed")
+    
+    return results
+
+
+# =============================================================================
 # A2A Helpers (inlined from my_a2a)
 # =============================================================================
 
@@ -531,9 +704,9 @@ async def get_agent_card(url: str, timeout: float = 60.0) -> AgentCard | None:
     """Get agent card with timeout handling."""
     try:
         httpx_client = httpx.AsyncClient(timeout=timeout)
-        resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
-        card = await resolver.get_agent_card()
-        return card
+    resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
+    card = await resolver.get_agent_card()
+    return card
     except httpx.TimeoutException:
         logger.error(f"Timeout getting agent card from {url}")
         raise
@@ -545,27 +718,27 @@ async def get_agent_card(url: str, timeout: float = 60.0) -> AgentCard | None:
 async def send_message(url, message, task_id=None, context_id=None, timeout: float = 180.0):
     """Send message to agent with timeout and error handling."""
     try:
-        card = await get_agent_card(url)
+    card = await get_agent_card(url)
         httpx_client = httpx.AsyncClient(timeout=timeout)
-        client = A2AClient(httpx_client=httpx_client, agent_card=card)
-        
-        message_id = uuid.uuid4().hex
-        params = MessageSendParams(
-            message=Message(
-                role=Role.user,
-                parts=[Part(TextPart(text=message))],
-                message_id=message_id,
-                task_id=task_id,
-                context_id=context_id,
-            )
+    client = A2AClient(httpx_client=httpx_client, agent_card=card)
+    
+    message_id = uuid.uuid4().hex
+    params = MessageSendParams(
+        message=Message(
+            role=Role.user,
+            parts=[Part(TextPart(text=message))],
+            message_id=message_id,
+            task_id=task_id,
+            context_id=context_id,
         )
-        request_id = uuid.uuid4().hex
-        req = SendMessageRequest(id=request_id, params=params)
+    )
+    request_id = uuid.uuid4().hex
+    req = SendMessageRequest(id=request_id, params=params)
         
         # Use asyncio timeout as additional safeguard
         async with asyncio.timeout(timeout + 30):
-            response = await client.send_message(request=req)
-        return response
+    response = await client.send_message(request=req)
+    return response
     except asyncio.TimeoutError:
         logger.error(f"Asyncio timeout sending message to {url}")
         raise
@@ -634,7 +807,7 @@ Begin by listing the directory contents.
         
         # Send message to white agent with error handling
         try:
-            response = await send_message(white_agent_url, next_message, context_id=context_id)
+        response = await send_message(white_agent_url, next_message, context_id=context_id)
         except asyncio.TimeoutError:
             logger.error(f"Timeout on step {step + 1}")
             return {

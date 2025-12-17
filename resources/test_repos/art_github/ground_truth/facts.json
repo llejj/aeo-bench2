@@ -1,0 +1,16 @@
+{
+  "main_purpose": "Convert text to ASCII art using various fonts and styles",
+  "dependencies": [],
+  "run_command": "from art import text2art; print(text2art('Hello'))",
+  "key_features": [
+    "text2art function for text to ASCII conversion",
+    "677+ fonts available",
+    "711+ 1-line art characters",
+    "218+ decorations",
+    "tprint for direct printing",
+    "aprint for 1-line art"
+  ],
+  "must_mention": ["text2art", "tprint", "ASCII", "font", "art"],
+  "main_file": "art/__init__.py"
+}
+

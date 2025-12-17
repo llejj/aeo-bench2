@@ -21,10 +21,12 @@ The Green Agent provides the White Agent with tools to explore a code repository
 │   └── agent_card.toml       # A2A agent configuration
 ├── resources/
 │   └── test_repos/           # Test cases for evaluation
-│       ├── qrcode_generator/ # QR code generation project
-│       ├── slugify_text/     # Text slugification utility
-│       ├── progress_bar/     # Terminal progress bar
-│       └── env_loader/       # Environment variable loader
+│       ├── password_generator/ # Synthetic: Password generation
+│       ├── countdown_timer/    # Synthetic: Terminal countdown timer
+│       ├── word_counter/       # Synthetic: Word/line/char counting
+│       ├── art_github/         # Real: ASCII art library
+│       ├── dotenv_github/      # Real: python-dotenv
+│       └── pyfiglet_github/    # Real: ASCII text banners
 ├── main.py                   # Main entry point
 └── start_all.sh              # Launch all agents
 ```
@@ -101,15 +103,29 @@ AEO-Bench uses a **4-tier scoring system** (100 points total):
 
 ## Test Cases
 
-The benchmark includes 4 diverse test cases from different domains:
+The benchmark includes **6 diverse test cases** - a mix of synthetic (hand-crafted) and real GitHub repositories:
+
+### Synthetic Test Cases (3)
+Hand-crafted projects with clean, uncontaminated code:
 
 | Test Case | Domain | Dependencies | Description |
 |-----------|--------|--------------|-------------|
-| `qrcode_generator` | Image/CLI | qrcode, pillow | Generate QR codes from text/URLs |
-| `slugify_text` | Text Processing | None (stdlib) | Convert text to URL-friendly slugs |
-| `progress_bar` | CLI Utility | None (stdlib) | Display progress bars for iterables |
-| `env_loader` | Configuration | None (stdlib) | Load environment variables from .env files |
+| `password_generator` | Security | None (stdlib) | Generate secure random passwords with options |
+| `countdown_timer` | CLI Utility | None (stdlib) | Terminal countdown timer with stopwatch mode |
+| `word_counter` | Text Processing | None (stdlib) | Count words, lines, and characters (like `wc`) |
 
+### Real GitHub Repositories (3)
+Cloned from actual open-source projects using `git clone --depth 1`:
+
+| Test Case | Source | Stars | Description |
+|-----------|--------|-------|-------------|
+| `art_github` | [sepandhaghighi/art](https://github.com/sepandhaghighi/art) | 2k+ | ASCII art library with 677 fonts |
+| `dotenv_github` | [theskumar/python-dotenv](https://github.com/theskumar/python-dotenv) | 7k+ | Load .env files as environment variables |
+| `pyfiglet_github` | [pwaller/pyfiglet](https://github.com/pwaller/pyfiglet) | 1.4k+ | Pure Python FIGlet ASCII text banners |
+
+The real repositories were cloned with `git clone --depth 1`, then cleaned up by removing `.git/`, test directories, CI configs, and other non-essential files. The original README serves as the ground truth documentation.
+
+### Test Case Structure
 Each test case includes:
 - Source code (`*.py`)
 - `metadata.json` - Project metadata
@@ -166,7 +182,6 @@ Generate comprehensive documentation (README + schema.org metadata) for a code r
 |--------|-------------|
 | `list_directory(path)` | List files in a directory |
 | `read_file(path)` | Read file contents |
-| `get_project_info()` | Get project metadata |
 | `respond(readme, metadata)` | Submit final documentation |
 
 ### Task Completion
@@ -179,10 +194,10 @@ The task ends when:
 ```
 Evaluation Complete ✅
 
-Overall Score: 312/400 (78.0%)
+Overall Score: 468/600 (78.0%)
 Average Score: 78.0/100
-Time: 45.2s
-Test Cases: 4
+Time: 67.3s
+Test Cases: 6
 
 Scoring Rubric:
   Tier 1 - Structural (15 pts): Valid JSON, README exists, metadata schema
@@ -191,10 +206,12 @@ Scoring Rubric:
   Tier 4 - Quality (30 pts): Clarity, completeness, formatting
 
 Individual Results:
-  ✅ qrcode_generator: 82/100 [T1:15/15 T2:25/25 T3:24/30 T4:18/30]
-  ✅ slugify_text: 79/100 [T1:15/15 T2:25/25 T3:22/30 T4:17/30]
-  ✅ progress_bar: 75/100 [T1:15/15 T2:17/25 T3:25/30 T4:18/30]
-  ✅ env_loader: 76/100 [T1:15/15 T2:25/25 T3:20/30 T4:16/30]
+  ✅ password_generator: 82/100 [T1:15/15 T2:25/25 T3:24/30 T4:18/30]
+  ✅ countdown_timer: 79/100 [T1:15/15 T2:25/25 T3:22/30 T4:17/30]
+  ✅ word_counter: 75/100 [T1:15/15 T2:17/25 T3:25/30 T4:18/30]
+  ✅ art_github: 80/100 [T1:15/15 T2:25/25 T3:22/30 T4:18/30]
+  ✅ dotenv_github: 76/100 [T1:15/15 T2:25/25 T3:20/30 T4:16/30]
+  ✅ pyfiglet_github: 76/100 [T1:15/15 T2:25/25 T3:20/30 T4:16/30]
 ```
 
 ## Reproducibility
@@ -210,6 +227,47 @@ uv run python main.py launch --test-ids 0,1,2,3
 ```
 
 Logs are written to `/tmp/green_agent.log` for debugging.
+
+## Rubric Validation
+
+The scoring system includes built-in validation to ensure consistent and accurate evaluation:
+
+```python
+from green.agent import validate_rubric
+
+# Run validation
+results = validate_rubric(verbose=True)
+# Output: Validation Summary: 3/3 passed
+```
+
+### Validation Test Cases
+
+| Case | Description | Expected Score |
+|------|-------------|----------------|
+| `perfect_documentation` | Complete docs with all sections | 75-100 |
+| `partial_documentation` | Missing some sections | 35-65 |
+| `minimal_documentation` | Bare minimum content | 15-35 |
+
+Each validation case checks that scores fall within expected ranges across all 4 tiers.
+
+## Bias and Contamination
+
+AEO-Bench addresses potential evaluation biases:
+
+### Contamination Prevention
+- **Synthetic test cases**: Hand-crafted, not present in any LLM training data
+- **Real repos**: Selected for being less famous to reduce contamination risk
+- **Ground truth isolation**: White agent cannot access `ground_truth/` directories
+
+### Evaluation Consistency
+- LLM judge uses low temperature (0.3) for reproducible scoring
+- Keyword-based section detection provides objective measurements
+- Multi-tier scoring prevents over-reliance on any single metric
+
+### Why Synthetic + Real Mix?
+- **Synthetic**: Guaranteed uncontaminated, controlled complexity
+- **Real**: Validates performance on actual open-source patterns
+- **Together**: Comprehensive coverage of documentation scenarios
 
 ## API Reference
 

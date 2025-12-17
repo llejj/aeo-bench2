@@ -1,0 +1,10 @@
+{
+  "name": "python-dotenv",
+  "description": "Read key-value pairs from .env file and set them as environment variables",
+  "language": "Python",
+  "domain": "configuration",
+  "files": ["src/dotenv/main.py", "src/dotenv/parser.py", "src/dotenv/cli.py"],
+  "source": "https://github.com/theskumar/python-dotenv",
+  "license": "BSD-3-Clause"
+}
+

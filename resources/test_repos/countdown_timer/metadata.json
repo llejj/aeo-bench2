@@ -1,0 +1,8 @@
+{
+  "name": "countdown_timer",
+  "description": "A simple terminal countdown timer with stopwatch mode",
+  "language": "Python",
+  "domain": "utility",
+  "files": ["timer.py"]
+}
+

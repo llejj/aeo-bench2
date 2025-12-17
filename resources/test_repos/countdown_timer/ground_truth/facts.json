@@ -1,0 +1,15 @@
+{
+  "main_purpose": "Terminal countdown timer with stopwatch mode",
+  "dependencies": [],
+  "run_command": "python timer.py 5m",
+  "key_features": [
+    "Countdown from any duration",
+    "Multiple time formats (30s, 5m, 1h, 1:30)",
+    "Stopwatch mode",
+    "Custom completion message",
+    "Terminal bell notification"
+  ],
+  "must_mention": ["time", "sys", "argparse", "countdown", "stopwatch"],
+  "main_file": "timer.py"
+}
+

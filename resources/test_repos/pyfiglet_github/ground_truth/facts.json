@@ -1,0 +1,16 @@
+{
+  "main_purpose": "Render ASCII text banners using FIGlet fonts",
+  "dependencies": [],
+  "run_command": "from pyfiglet import figlet_format; print(figlet_format('Hello'))",
+  "key_features": [
+    "Pure Python FIGlet implementation",
+    "figlet_format function for quick rendering",
+    "Figlet class for more control",
+    "Multiple font support",
+    "Command line interface",
+    "Kerning and smushing support"
+  ],
+  "must_mention": ["figlet_format", "Figlet", "FIGlet", "ASCII", "font", "banner"],
+  "main_file": "pyfiglet/__init__.py"
+}
+

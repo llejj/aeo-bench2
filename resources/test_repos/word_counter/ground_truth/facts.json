@@ -1,0 +1,15 @@
+{
+  "main_purpose": "Count words, lines, and characters in text files",
+  "dependencies": [],
+  "run_command": "python wordcount.py file.txt",
+  "key_features": [
+    "Count lines, words, characters",
+    "Multiple file support with totals",
+    "Read from stdin",
+    "Most common words analysis",
+    "Byte count option"
+  ],
+  "must_mention": ["argparse", "pathlib", "count", "lines", "words", "characters"],
+  "main_file": "wordcount.py"
+}
+

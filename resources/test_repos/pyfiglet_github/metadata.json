@@ -1,0 +1,10 @@
+{
+  "name": "pyfiglet",
+  "description": "Pure Python implementation of FIGlet for creating ASCII text banners",
+  "language": "Python",
+  "domain": "ascii_art",
+  "files": ["pyfiglet/__init__.py", "pyfiglet/__main__.py"],
+  "source": "https://github.com/pwaller/pyfiglet",
+  "license": "MIT"
+}
+

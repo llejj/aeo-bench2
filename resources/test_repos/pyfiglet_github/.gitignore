@@ -1,0 +1,8 @@
+*.pyc
+*~
+.*.swp
+/build/
+/dist/
+/pyfiglet.egg-info/
+env*/
+.venv/

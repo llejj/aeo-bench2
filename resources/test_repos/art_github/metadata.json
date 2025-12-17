@@ -1,0 +1,10 @@
+{
+  "name": "art",
+  "description": "ASCII Art Library for Python",
+  "language": "Python",
+  "domain": "ascii_art",
+  "files": ["art/__init__.py", "art/functions.py", "art/data/arts.py"],
+  "source": "https://github.com/sepandhaghighi/art",
+  "license": "MIT"
+}
+

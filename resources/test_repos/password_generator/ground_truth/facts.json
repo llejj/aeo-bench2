@@ -1,0 +1,15 @@
+{
+  "main_purpose": "Generate secure random passwords with customizable options",
+  "dependencies": [],
+  "run_command": "python password_gen.py",
+  "key_features": [
+    "Customizable password length",
+    "Toggle character types (upper, lower, digits, special)",
+    "Exclude specific characters",
+    "Generate multiple passwords",
+    "Check password strength"
+  ],
+  "must_mention": ["random", "string", "argparse", "generate_password", "length"],
+  "main_file": "password_gen.py"
+}
+
