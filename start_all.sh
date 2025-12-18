@@ -1,9 +1,24 @@
 #!/bin/bash
 # Single command to start all AEO-Bench services with Cloudflare Tunnel
-# Usage: ./start_all.sh
+# Usage: ./start_all.sh [test_id] [test_id2] ...
+# Examples:
+#   ./start_all.sh        # Default: run test 0
+#   ./start_all.sh 0 1 2  # Run tests 0, 1, and 2
+#   ./start_all.sh all    # Run all tests
+# Available test cases:
+#   0: art_github
+#   1: countdown_timer
+#   2: dotenv_github
+#   3: password_generator
+#   4: pyfiglet_github
+#   5: word_counter
 # Press Ctrl+C to stop everything
 
 set -e
+
+# Parse test case arguments
+TEST_IDS="${*:-0}"  # Default to "0" if no args provided
+export TEST_IDS
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -69,7 +84,8 @@ echo ""
 
 # Start agents
 echo "[3/4] Starting GREEN agent (Evaluation Manager)..."
-DOMAIN="$DOMAIN" ./start_green.sh 2>&1 | sed 's/^/[GREEN] /' &
+echo "[GREEN] Test IDs: $TEST_IDS"
+DOMAIN="$DOMAIN" TEST_IDS="$TEST_IDS" ./start_green.sh 2>&1 | sed 's/^/[GREEN] /' &
 GREEN_PID=$!
 sleep 2
 

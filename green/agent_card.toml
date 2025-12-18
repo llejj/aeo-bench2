@@ -24,7 +24,7 @@ http://localhost:9002/
 You should use the following test configuration:
 <test_config>
 {
-  "test_ids": [0, 1, 2]
+  "test_ids": [1]
 }
 </test_config>
     """]

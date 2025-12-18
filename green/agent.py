@@ -996,9 +996,12 @@ class AEOGreenAgentExecutor(AgentExecutor):
         if "test_config" in tags:
             test_config = json.loads(tags["test_config"])
         else:
-            # Default: run first 2 test cases to stay within timeout
-            # For full evaluation, pass test_config with test_ids: null
-            test_config = {"test_ids": [0, 1]}
+            # Read from TEST_IDS env var, defaulting to [0]
+            env_test_ids = os.environ.get("TEST_IDS", "0")
+            if env_test_ids.lower() == "all":
+                test_config = {"test_ids": None}  # None means all tests
+            else:
+                test_config = {"test_ids": [int(x) for x in env_test_ids.split()]}
         
         # Discover and load test cases
         all_test_cases = discover_test_cases()

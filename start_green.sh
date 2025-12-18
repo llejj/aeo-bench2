@@ -12,12 +12,14 @@ export HTTPS_ENABLED=true
 export CLOUDRUN_HOST="$DOMAIN/green"
 export PORT=8010
 export PYTHONUNBUFFERED=1
+export TEST_IDS="${TEST_IDS:-0}"
 
 echo "=============================================="
 echo "Starting GREEN agent (AEO Evaluation Manager)"
 echo "=============================================="
 echo "Controller port: $PORT"
 echo "External URL: https://$CLOUDRUN_HOST"
+echo "Test IDs: $TEST_IDS"
 echo "=============================================="
 echo ""
 

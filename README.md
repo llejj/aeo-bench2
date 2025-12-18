@@ -313,7 +313,3 @@ AEO-Bench addresses potential evaluation biases:
 ## License
 
 MIT License
-
-## Authors
-
-CS194 Course Project - Fall 2024
