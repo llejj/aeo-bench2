@@ -82,10 +82,10 @@ def load_test_case(name: str) -> TestCase:
     if not repo_path.exists():
         raise ValueError(f"Test case not found: {name}")
     
-    # Load metadata.json
-    metadata_path = repo_path / "metadata.json"
+    # Load metadata.json from ground_truth (hidden from white agent)
+    metadata_path = repo_path / "ground_truth" / "metadata.json"
     if not metadata_path.exists():
-        raise ValueError(f"metadata.json not found for test case: {name}")
+        raise ValueError(f"ground_truth/metadata.json not found for test case: {name}")
     
     with open(metadata_path, 'r') as f:
         metadata = json.load(f)
@@ -724,6 +724,22 @@ def validate_rubric(verbose: bool = True) -> dict:
 
 
 # =============================================================================
+# Display Helpers
+# =============================================================================
+
+def truncate_for_display(message: str, max_len: int = 500) -> str:
+    """Truncate message for display, showing placeholder for file contents."""
+    if "Tool call result for 'read_file':" in message:
+        # Extract just the header, replace content with placeholder
+        lines = message.split('\n')
+        header = lines[0]  # "Tool call result for 'read_file':"
+        return f"{header}\n<file content: {len(message) - len(header)} chars>\n\nContinue exploring..."
+    elif len(message) > max_len:
+        return message[:max_len] + f"... <truncated, {len(message)} chars total>"
+    return message
+
+
+# =============================================================================
 # A2A Helpers (inlined from my_a2a)
 # =============================================================================
 
@@ -836,7 +852,7 @@ Begin by listing the directory contents.
     
     for step in range(max_steps):
         logger.info(f"Step {step + 1}/{max_steps}: Sending message to white agent")
-        print(f"@@@ Green agent: Sending message to white agent{'ctx_id=' + str(context_id) if context_id else ''}... -->\n{next_message}")
+        print(f"@@@ Green agent: Sending message to white agent{'ctx_id=' + str(context_id) if context_id else ''}... -->\n{truncate_for_display(next_message)}")
         
         # Send message to white agent with error handling
         try:
@@ -954,7 +970,7 @@ Begin by listing the directory contents.
             # Tool call - execute and send result back
             tool_result = execute_tool(action_name, action_kwargs, test_case)
             print(f"@@@ Tool '{action_name}' called with args: {action_kwargs}")
-            print(f"@@@ Tool result:\n{tool_result}")
+            print(f"@@@ Tool result:\n{truncate_for_display(tool_result)}")
             logger.info(f"Tool '{action_name}' result: {tool_result[:200]}...")
             
             next_message = f"""Tool call result for '{action_name}':
