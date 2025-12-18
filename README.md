@@ -16,8 +16,11 @@ The Green Agent provides the White Agent with tools to explore a code repository
 ├── green/                    # Green Agent (evaluator)
 │   ├── agent.py              # Main evaluation logic
 │   └── agent_card.toml       # A2A agent configuration
-├── white/                    # White Agent (documentation generator)
-│   ├── agent.py              # White agent implementation
+├── white/                    # White Agent v1 (baseline - simple LLM wrapper)
+│   ├── agent.py              # Basic implementation
+│   └── agent_card.toml       # A2A agent configuration
+├── white2/                   # White Agent v2 (LangGraph with Planner/Explorer/Generator)
+│   ├── agent.py              # LangGraph state machine implementation
 │   └── agent_card.toml       # A2A agent configuration
 ├── resources/
 │   └── test_repos/           # Test cases for evaluation
@@ -30,6 +33,85 @@ The Green Agent provides the White Agent with tools to explore a code repository
 ├── main.py                   # Main entry point
 └── start_all.sh              # Launch all agents
 ```
+
+## White Agent Architecture
+
+The white agent uses a **LangGraph state machine** with three specialized nodes:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   LangGraph State Machine                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   [Initial Task] ──► list_directory(".")                    │
+│                            │                                │
+│                            ▼                                │
+│                    ┌───────────────┐                        │
+│                    │   PLANNER     │◄──────────────┐        │
+│                    │               │               │        │
+│                    │ Sees src/?    │──► list_directory("src/")
+│                    │               │               │        │
+│                    │ Has full tree │──► Create plan         │
+│                    └───────┬───────┘                        │
+│                            │                                │
+│                            ▼                                │
+│                    ┌───────────────┐                        │
+│                    │   EXPLORER    │◄──────────────┐        │
+│                    │               │               │        │
+│                    │ More files?   │──► read_file()         │
+│                    │               │               │        │
+│                    │ Done reading  │                        │
+│                    └───────┬───────┘                        │
+│                            │                                │
+│                            ▼                                │
+│                    ┌───────────────┐                        │
+│                    │  GENERATOR    │──► respond()           │
+│                    └───────────────┘                        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Node Descriptions
+
+| Node | Purpose | Input | Output |
+|------|---------|-------|--------|
+| **PLANNER** | Explores directory structure and creates file reading plan | Directory listings | `list_directory()` or exploration plan |
+| **EXPLORER** | Reads files according to plan | File contents | `read_file()` or "ready" signal |
+| **GENERATOR** | Produces final README and schema.org metadata | All accumulated file contents | `respond()` with documentation |
+
+### State Tracking
+
+The agent maintains state across request-response cycles:
+
+```python
+class AgentState(TypedDict):
+    phase: Literal["planning", "exploring", "generating"]
+    project_name: str
+    project_description: str
+    files_discovered: list[str]      # All files found
+    directories_discovered: list[str] # All directories found
+    directories_explored: list[str]   # Directories we've listed
+    files_read: dict[str, str]        # File path -> content
+    exploration_plan: list[str]       # Files to read
+    next_action: Optional[dict]       # Action to return
+```
+
+### Key Features
+
+- **Nested directory support**: PLANNER explores subdirectories before creating the file reading plan
+- **Explicit reasoning**: Each node uses chain-of-thought prompting with `<thinking>` blocks
+- **Graceful fallbacks**: Parse failures trigger default behaviors instead of crashes
+- **Modular design**: Each node has a single responsibility and can be modified independently
+
+### Baseline vs LangGraph Agent
+
+| Feature | white/ (baseline) | white2/ (LangGraph) |
+|---------|-------------------|---------------------|
+| Architecture | Single LLM call per step | State machine with 3 nodes |
+| Planning | Implicit in prompt | Explicit PLANNER node |
+| Directory handling | Root only | Recursive exploration |
+| Reasoning | Hidden in LLM | Visible in node outputs |
+| Extensibility | Modify prompt | Add/modify nodes |
 
 ## Installation
 
@@ -220,12 +302,16 @@ Available commands for running and testing:
 
 ```bash
 # Start all agents with Cloudflare tunnel (for AgentBeats platform)
+# Uses white2 (LangGraph) by default
 ./start_all.sh
 
 # Start green agent only (evaluation manager)
 uv run python main.py green
 
-# Start white agent only (documentation generator)
+# Start white agent v2 (LangGraph - used by start_all.sh)
+uv run python main.py white2
+
+# Start white agent v1 (baseline - for comparison)
 uv run python main.py white
 
 # Run local evaluation with both agents

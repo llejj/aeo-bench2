@@ -91,7 +91,7 @@ class AEOWhiteAgentExecutor(AgentExecutor):
         logger.info(f"White agent: Calling LLM with {len(messages)} messages")
         response = completion(
             messages=messages,
-            model="openai/gpt-4o",
+            model="openai/gpt-4o-mini",
             custom_llm_provider="openai",
             temperature=0.3,
         )

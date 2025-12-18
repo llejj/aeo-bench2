@@ -2,9 +2,14 @@
 
 import typer
 import asyncio
+import httpx
+import json
+import uuid
+import multiprocessing
 
 from green import start_green_agent
-from white import start_white_agent
+from white import start_white_agent as start_white_agent_v1
+from white2 import start_white_agent as start_white_agent_v2
 
 app = typer.Typer(help="AEO-Bench - Answer Engine Optimization benchmark for documentation generation")
 
@@ -17,14 +22,20 @@ def green():
 
 @app.command()
 def white():
-    """Start the white agent (documentation generator being tested)."""
-    start_white_agent()
+    """Start the white agent v1 (baseline - simple LLM wrapper)."""
+    start_white_agent_v1()
 
 
 @app.command()
-def launch():
+def white2():
+    """Start the white agent v2 (LangGraph with Planner/Explorer/Generator nodes)."""
+    start_white_agent_v2()
+
+
+@app.command()
+def launch(version: str = typer.Option("v2", help="Agent version: v1 (baseline) or v2 (LangGraph)")):
     """Launch the complete evaluation workflow locally."""
-    asyncio.run(launch_evaluation())
+    asyncio.run(launch_evaluation(version=version))
 
 
 @app.command()
@@ -43,15 +54,16 @@ def validate():
     print(f"\nValidation PASSED: All {results['passed']} test case(s) within expected ranges")
 
 
-async def launch_evaluation():
+async def launch_evaluation(version: str = "v2"):
     """Launch both agents and run evaluation."""
-    import multiprocessing
-    import json
-    import httpx
-    import uuid
-    from a2a.client import A2ACardResolver, A2AClient
-    from a2a.types import Part, TextPart, MessageSendParams, Message, Role, SendMessageRequest
-    
+    # Select white agent version
+    if version == "v1":
+        white_agent_fn = start_white_agent_v1
+        white_agent_name = "white agent v1 (baseline)"
+    else:
+        white_agent_fn = start_white_agent_v2
+        white_agent_name = "white agent v2 (LangGraph)"
+
     # Start green agent
     print("Launching green agent...")
     green_address = ("localhost", 9001)
@@ -60,17 +72,17 @@ async def launch_evaluation():
         target=start_green_agent, args=("agent_card", *green_address)
     )
     p_green.start()
-    
+
     # Wait for green agent to be ready
     await wait_agent_ready(green_url)
     print("Green agent is ready.")
 
     # Start white agent
-    print("Launching white agent...")
+    print(f"Launching {white_agent_name}...")
     white_address = ("localhost", 9002)
     white_url = f"http://{white_address[0]}:{white_address[1]}"
     p_white = multiprocessing.Process(
-        target=start_white_agent, args=("agent_card", *white_address)
+        target=white_agent_fn, args=("agent_card", *white_address)
     )
     p_white.start()
     
@@ -111,16 +123,14 @@ You should use the following test configuration:
 
 async def wait_agent_ready(url, timeout=30):
     """Wait until an A2A agent is ready."""
-    import asyncio
-    
     for i in range(timeout):
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(f"{url}/.well-known/agent.json")
                 if response.status_code == 200:
                     return True
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  Health check error: {type(e).__name__}: {e}")
         print(f"Waiting for agent at {url}... ({i+1}/{timeout})")
         await asyncio.sleep(1)
     
@@ -129,10 +139,9 @@ async def wait_agent_ready(url, timeout=30):
 
 async def send_message(url, message):
     """Send a message to an A2A agent."""
-    import uuid
     from a2a.client import A2ACardResolver, A2AClient
     from a2a.types import Part, TextPart, MessageSendParams, Message, Role, SendMessageRequest
-    
+
     async with httpx.AsyncClient(timeout=300.0) as httpx_client:
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
         card = await resolver.get_agent_card()

@@ -8,6 +8,7 @@ dependencies = [
     "a2a-sdk[http-server]>=0.3.8",
     "dotenv>=0.9.9",
     "earthshaker",
+    "langgraph>=0.2.0",
     "litellm>=1.0.0",
     "typer>=0.19.2",
     "uvicorn>=0.37.0",

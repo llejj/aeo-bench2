@@ -1,10 +1,10 @@
 #!/bin/bash
-# Start the WHITE agent (Documentation Generator) on port 8011
+# Start the WHITE agent v2 (LangGraph Documentation Generator) on port 8011
 # Accessed via: https://domain/white/...
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR/white"
+cd "$SCRIPT_DIR/white2"
 source "$SCRIPT_DIR/.venv/bin/activate"
 
 DOMAIN="${DOMAIN:-763324.uk}"
@@ -14,7 +14,7 @@ export PORT=8011
 export PYTHONUNBUFFERED=1
 
 echo "=============================================="
-echo "Starting WHITE agent (Documentation Generator)"
+echo "Starting WHITE agent v2 (LangGraph)"
 echo "=============================================="
 echo "Controller port: $PORT"
 echo "External URL: https://$CLOUDRUN_HOST"
